@@ -9,20 +9,20 @@ training:
   criterion: CrossEntropyLoss
   optimizer: Adam
   learning_rate: 0.001
-  max_epochs: 1000
+  max_epochs: 1500
   val_every_n_epochs: 2
   log_every_n_steps: 10
   loggers:
     WandbLogger:
       params:
         name: resnet20-rniq
-        note: ""
+        note: "noise + deepdream"
   callbacks:
-      ModelCheckpoint:
+    ModelCheckpoint:
       params:
-        monitor: Metric/Accuracy_top1
+        monitor: Metric/ns_Accuracy_top1
         mode: max
-        filename: rniq_checkpoint-{epoch:02d}-"{Metric/top-1:.2f}"
+        filename: rniq_checkpoint-{epoch:02d}-"{Metric/ns_Accuracy_top1:.2f}"
     ReduceLrOnOutlier:
       params:
         reduce_scale: 4
@@ -32,16 +32,16 @@ training:
         reduce_scale: 2
 
 data:
-  dataset_name: CIFAR10_DALI
-  batch_size: 1000
+  dataset_name: CIFAR10_NOISE
+  batch_size: 2000
   num_workers: 8
 
 
 quantization:
   name: RNIQQuant
   qscheme: 1 # 0 for per-tensor, 1 for per-channel
-  weight_bit: 1
-  act_bit: 4
+  weight_bit: 2
+  act_bit: 2
   distillation: True
   distillation_loss: Symmetrical KL
   excluded_layers:

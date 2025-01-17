@@ -8,7 +8,7 @@ from src.quantization.rniq.layers.rniq_linear import NoisyLinear
 from src.quantization.rniq.layers.rniq_act import NoisyAct
 from src.quantization.rniq.utils.model_helper import ModelHelper
 from src.quantization.rniq.rniq_loss import PotentialLoss
-from src.quantization.rniq.utils import model_stats
+from src.quantization.rniq.utils import model_stats, hooks
 from src.aux.qutils import attrsetter, is_biased
 from src.aux.loss.hellinger import HellingerLoss
 from src.aux.loss.symm_ce_loss import SymmetricalCrossEntropyLoss
@@ -74,6 +74,12 @@ class RNIQQuant(BaseQuant):
 
         if self.config.quantization.distillation:
             qmodel.tmodel = tmodel.requires_grad_(False)
+            
+            # chosen layer to propagate back from
+            chosen_module = tmodel.model.features.stage3.unit3.body.conv2.conv
+            ###
+            qmodel.tmodel.hook = hooks.ActivationHook(chosen_module)
+
 
         qmodel.wrapped_criterion = PotentialLoss(
             criterion=self.get_distill_loss(qmodel=qmodel),
@@ -92,9 +98,13 @@ class RNIQQuant(BaseQuant):
         # Important step. Replacing training and validation steps
         # with alternated ones.
         if self.config.quantization.distillation:
-            qmodel.training_step = RNIQQuant.distillation_noisy_training_step.__get__(
+            qmodel.training_step = RNIQQuant.distillation_deepdream_noisy_training_step.__get__(
                 qmodel, type(qmodel)
             )
+
+            # qmodel.training_step = RNIQQuant.distillation_noisy_training_step.__get__(
+                # qmodel, type(qmodel)
+            # )
         else:
             qmodel.training_step = RNIQQuant.noisy_training_step.__get__(
                 qmodel, type(qmodel)
@@ -181,6 +191,48 @@ class RNIQQuant(BaseQuant):
         self.log("LR", self.lr, prog_bar=True)
 
         return loss
+    
+    @staticmethod
+    def distillation_deepdream_noisy_training_step(self, batch, batch_idx):
+        inputs, targets = batch
+
+        # Kinda deepdream of some sort
+        ##############################
+        inputs.requires_grad_(True)
+        fp_outputs = self.tmodel(inputs)
+        
+        loss_ = self.tmodel.hook.feature_map.norm()
+        loss_.backward(retain_graph=True)
+        
+        step_size = 0.5
+        with torch.no_grad():
+            inputs_ = inputs.detach() + step_size * inputs.grad / (inputs.grad.std() + 1e-8)
+            inputs.grad.zero_()
+            
+        ##############################
+            
+        inputs.requires_grad_(False)
+        outputs = RNIQQuant.noisy_step(self, inputs_)
+        
+        loss = self.wrapped_criterion(outputs, fp_outputs)
+
+        self.log("Loss/FP loss", F.cross_entropy(fp_outputs, targets))
+        self.log("Loss/Train loss", loss, prog_bar=True)
+        self.log(
+            "Loss/Base train loss", self.wrapped_criterion.base_loss, prog_bar=True
+        )
+        self.log("Loss/Wloss", self.wrapped_criterion.wloss, prog_bar=False)
+        self.log("Loss/Aloss", self.wrapped_criterion.aloss, prog_bar=False)
+        self.log(
+            "Loss/Weight reg loss",
+            self.wrapped_criterion.weight_reg_loss,
+            prog_bar=False,
+        )
+        self.log("LR", self.lr, prog_bar=True)
+
+        return loss
+        
+        
 
     @staticmethod
     def noisy_validation_step(self, val_batch, val_index):
