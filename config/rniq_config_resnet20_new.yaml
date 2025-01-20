@@ -8,7 +8,7 @@ model:
 training:
   criterion: CrossEntropyLoss
   optimizer: Adam
-  learning_rate: 0.001
+  learning_rate: 0.0001
   max_epochs: 1500
   val_every_n_epochs: 2
   log_every_n_steps: 10
@@ -16,7 +16,7 @@ training:
     WandbLogger:
       params:
         name: resnet20-rniq
-        note: "noise + deepdream"
+        note: "noise + deepdream features.stage2.unit3.body.conv2.conv, step_size = 0.02, back input for tmodel"
   callbacks:
     ModelCheckpoint:
       params:
@@ -26,7 +26,7 @@ training:
     ReduceLrOnOutlier:
       params:
         reduce_scale: 4
-        lr_lim: 0.005
+        lr_lim: 0.001
     RandNoiseScale:
       params:
         reduce_scale: 2
@@ -41,7 +41,7 @@ quantization:
   name: RNIQQuant
   qscheme: 1 # 0 for per-tensor, 1 for per-channel
   weight_bit: 2
-  act_bit: 2
+  act_bit: 8
   distillation: True
   distillation_loss: Symmetrical KL
   excluded_layers:

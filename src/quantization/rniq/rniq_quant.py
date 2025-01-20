@@ -76,7 +76,8 @@ class RNIQQuant(BaseQuant):
             qmodel.tmodel = tmodel.requires_grad_(False)
             
             # chosen layer to propagate back from
-            chosen_module = tmodel.model.features.stage3.unit3.body.conv2.conv
+            # chosen_module = tmodel.model.features.stage3.unit3.body.conv2.conv
+            chosen_module = tmodel.model.features.stage2.unit3.body.conv2.conv
             ###
             qmodel.tmodel.hook = hooks.ActivationHook(chosen_module)
 
@@ -195,6 +196,7 @@ class RNIQQuant(BaseQuant):
     @staticmethod
     def distillation_deepdream_noisy_training_step(self, batch, batch_idx):
         inputs, targets = batch
+        # fp_outputs = self.tmodel(inputs)
 
         # Kinda deepdream of some sort
         ##############################
@@ -204,7 +206,7 @@ class RNIQQuant(BaseQuant):
         loss_ = self.tmodel.hook.feature_map.norm()
         loss_.backward(retain_graph=True)
         
-        step_size = 0.5
+        step_size = 0.02
         with torch.no_grad():
             inputs_ = inputs.detach() + step_size * inputs.grad / (inputs.grad.std() + 1e-8)
             inputs.grad.zero_()
@@ -212,11 +214,13 @@ class RNIQQuant(BaseQuant):
         ##############################
             
         inputs.requires_grad_(False)
+        fp_outputs_ = self.tmodel(inputs_)
         outputs = RNIQQuant.noisy_step(self, inputs_)
+        # outputs = RNIQQuant.noisy_step(self, inputs)
         
-        loss = self.wrapped_criterion(outputs, fp_outputs)
+        loss = self.wrapped_criterion(outputs, fp_outputs_)
 
-        self.log("Loss/FP loss", F.cross_entropy(fp_outputs, targets))
+        self.log("Loss/FP loss", F.cross_entropy(fp_outputs_, targets))
         self.log("Loss/Train loss", loss, prog_bar=True)
         self.log(
             "Loss/Base train loss", self.wrapped_criterion.base_loss, prog_bar=True
