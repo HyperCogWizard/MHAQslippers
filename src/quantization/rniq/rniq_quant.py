@@ -84,7 +84,7 @@ class RNIQQuant(BaseQuant):
 
         qmodel.wrapped_criterion = PotentialLoss(
             criterion=self.get_distill_loss(qmodel=qmodel),
-            alpha=(1, 1, 1),
+            alpha=(1, 0.1, 1),
             # alpha=self.alpha,
             lmin=0,
             p=1,
@@ -206,7 +206,7 @@ class RNIQQuant(BaseQuant):
         loss_ = self.tmodel.hook.feature_map.norm()
         loss_.backward(retain_graph=True)
         
-        step_size = 0.02
+        step_size = 0.2
         with torch.no_grad():
             inputs_ = inputs.detach() + step_size * inputs.grad / (inputs.grad.std() + 1e-8)
             inputs.grad.zero_()

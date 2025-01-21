@@ -2,6 +2,7 @@ import torch
 
 from torch import Tensor
 from torch.nn.modules import Module 
+from src.quantization.rniq.utils.qnoise import QNoise
 
 
 class Quantizer:
@@ -51,7 +52,7 @@ class Quantizer:
         # This conditions are not essential
         # Just for sake of opitmization
 
-        zero_noise = torch.zeros_like(value)
+        # zero_noise = torch.zeros_like(value)
 
         # clamp is used only for activations
         # the clamp is before noise beacause adding rounding noise is equivalent to rounding clamp
@@ -63,25 +64,27 @@ class Quantizer:
             value = value / self.scale
 
 
-        if self.rnoise_ratio.item() == -1.0 or not self._is_positive_scale():
-            # No need to calculate noise at all
-            rnoise = zero_noise
-            qnoise = zero_noise
-        elif self.rnoise_ratio.item() == 0.0:
-            # Disable random noise calculation
-            rnoise = zero_noise
-            qnoise = self._get_qnoise(value)
-        elif self.rnoise_ratio.item() == 1.0:
-            # Disable quantization noise calculation
-            qnoise = zero_noise
-            rnoise = self._get_rnoise(value)
-        else:
-            qnoise = self._get_qnoise(value)
-            rnoise = self._get_rnoise(value)
+        # if self.rnoise_ratio.item() == -1.0 or not self._is_positive_scale():
+        #     # No need to calculate noise at all
+        #     rnoise = zero_noise
+        #     qnoise = zero_noise
+        # elif self.rnoise_ratio.item() == 0.0:
+        #     # Disable random noise calculation
+        #     rnoise = zero_noise
+        #     qnoise = self._get_qnoise(value)
+        # elif self.rnoise_ratio.item() == 1.0:
+        #     # Disable quantization noise calculation
+        #     qnoise = zero_noise
+        #     rnoise = self._get_rnoise(value)
+        # else:
+        #     qnoise = self._get_qnoise(value)
+        #     rnoise = self._get_rnoise(value)
 
-        noise = self.rnoise_ratio * rnoise + (1 - self.rnoise_ratio) * qnoise
+        # noise = self.rnoise_ratio * rnoise + (1 - self.rnoise_ratio) * qnoise
         
-        value = value + noise.detach()
+        # value = value + noise.detach()
+
+        value += QNoise.apply(value)
 
         #assert valid values
         if not self.module.training:
