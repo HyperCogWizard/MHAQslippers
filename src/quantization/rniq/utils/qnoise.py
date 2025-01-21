@@ -5,25 +5,24 @@ from torch.autograd import Function
 class QNoise(Function):
 
     @staticmethod
-    # def forward(input, scale):
+    def forward(input, scale):
         # output = scale * (torch.round(input) - input)
-
-    def forward(input):
-        output = torch.round(input) - input
+        output = (torch.round(input) - input)
         return output
 
     @staticmethod
     def setup_context(ctx, inputs, output):
-        # input, scale = inputs
-        # input = inputs[0]
-        input = inputs
-        # ctx.save_for_backward(input, scale)
-        ctx.save_for_backward(input)
+        input, scale = inputs
+        ctx.save_for_backward(input, scale)
 
     @staticmethod
     def backward(ctx, grad_output: Tensor):
-        # input, scale = ctx.saved_tensors
-        input = ctx.saved_tensors
+        # This is a pattern that is very convenient - at the top of backward
+        # unpack saved_tensors and initialize all gradients w.r.t. inputs to
+        # None. Thanks to the fact that additional trailing Nones are
+        # ignored, the return statement is simple even when the function has
+        # optional inputs.
+        input, scale = ctx.saved_tensors
         grad_input = grad_scale = None
 
         if ctx.needs_input_grad[0]:
