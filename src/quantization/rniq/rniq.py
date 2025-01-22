@@ -84,7 +84,8 @@ class Quantizer:
         
         # value = value + noise.detach()
 
-        value += QNoise.apply(value)
+        # value = value + QNoise.apply(value, self.scale) / self.scale
+        value = value + QNoise.apply(value, self.scale)
 
         #assert valid values
         if not self.module.training:

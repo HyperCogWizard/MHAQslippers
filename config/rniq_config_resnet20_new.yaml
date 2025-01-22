@@ -16,7 +16,7 @@ training:
     WandbLogger:
       params:
         name: resnet20-rniq
-        note: "noise + deepdream features.stage2.unit3.body.conv2.conv, step_size = 0.02, back input for tmodel"
+        note: "noise + deepdream features.stage2.unit3.body.conv2.conv, step_size = 0.2, back input for tmodel + grad rework. 0.7 for act loss"
   callbacks:
     ModelCheckpoint:
       params:
@@ -33,15 +33,15 @@ training:
 
 data:
   dataset_name: CIFAR10_NOISE
-  batch_size: 2000
+  batch_size: 1000
   num_workers: 8
 
 
 quantization:
   name: RNIQQuant
   qscheme: 1 # 0 for per-tensor, 1 for per-channel
-  weight_bit: 2
-  act_bit: 8
+  weight_bit: 4
+  act_bit: 4
   distillation: True
   distillation_loss: Symmetrical KL
   excluded_layers:
