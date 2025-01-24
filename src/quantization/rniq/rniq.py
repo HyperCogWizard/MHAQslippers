@@ -89,11 +89,11 @@ class Quantizer:
 
         #assert valid values
         if not self.module.training:
-            if self._is_positive_scale() and (torch.any(value < (self.min_val - self.zero_point) / self.scale - 0.5)):
+            if self._is_positive_scale() and (torch.any(value < torch.floor(self.min_val / self.scale))):
                 raise AssertionError("Not all elements in the tensor above min val")
-            if self._is_positive_scale() and (torch.any(value > (self.max_val - self.zero_point) / self.scale + 0.5)):
+            if self._is_positive_scale() and (torch.any(value > torch.ceil(self.max_val / self.scale))):
                 raise AssertionError("Not all elements in the tensor below max val")            
-            if self.rnoise_ratio == 0 and not torch.all(value == value.floor()):
+            if self.rnoise_ratio == 0 and not torch.all((value == value.floor()) | (value == value.ceil())):
                 raise AssertionError("Not all elements in the tensor have integer values.")
         
         return value
@@ -108,8 +108,9 @@ class Quantizer:
 
         return quantized_value + self.zero_point
 
-    def _get_qnoise(self, value: Tensor):
-        return torch.round(value) - value
+    def _get_qnoise(self, value: Tensor, scale: Tensor):
+        return (torch.round(value) - value).detach() * scale
 
-    def _get_rnoise(self, value: Tensor):
-        return torch.randint(2, size=value.shape, dtype=value.dtype, device=value.device).sub(0.5)
+    def _get_rnoise(self, value: Tensor, scale: Tensor):
+        #return torch.randint(2, size=value.shape, dtype=value.dtype, device=value.device).sub(0.5).detach()
+        return scaled_noise(value, scale)

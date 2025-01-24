@@ -122,15 +122,17 @@ class RNIQQuant(BaseQuant):
             lmodel.model, exclude_layers=self.excluded_layers)
         for layer in qlayers.keys():
             module = attrgetter(layer)(lmodel.model)
-            preceding_layer_type = layer_types[layer_names.index(layer) - 1]
-            if issubclass(preceding_layer_type, nn.ReLU):
-                qmodule = self._quantize_module(
-                    module, signed_Activations=False)
-            else:
-                qmodule = self._quantize_module(
-                    module, signed_Activations=True)
+            if module.kernel_size != (1,1):
+                print(layer + " " + repr(module.kernel_size))
+                preceding_layer_type = layer_types[layer_names.index(layer) - 1]
+                if issubclass(preceding_layer_type, nn.ReLU):
+                    qmodule = self._quantize_module(
+                        module, signed_Activations=False)
+                else:
+                    qmodule = self._quantize_module(
+                        module, signed_Activations=False)
 
-            attrsetter(layer)(qmodel.model, qmodule)
+                attrsetter(layer)(qmodel.model, qmodule)
 
         return qmodel
 
@@ -251,7 +253,7 @@ class RNIQQuant(BaseQuant):
             metric_value = metric(outputs[0], targets)
             # metric_value = metric(outputs, targets)
             self.log(f"Metric/{name}", metric_value, prog_bar=False)
-            self.log(f"Metric/ns_{name}", metric_value * (self.noise_ratio()==0), prog_bar=False) 
+            self.log(f"Metric/ns_{name}", metric_value * (self.wrapped_criterion.aloss<0 and self.wrapped_criterion.wloss<0), prog_bar=False) 
 
         # Not very optimal approach. Cycling through model two times..
         self.log(
@@ -278,7 +280,7 @@ class RNIQQuant(BaseQuant):
         self.log("Loss/Validation loss", val_loss, prog_bar=False)
         # idea is to modify val loss during the stage when model is not converged 
         # to use this metric later for the chckpoint callback
-        self.log("Loss/ns_val_loss", val_loss + (10 * self.noise_ratio()), prog_bar=False) 
+        # self.log("Loss/ns_val_loss", val_loss + (10 * self.noise_ratio()), prog_bar=False) 
 
     @staticmethod
     def noisy_test_step(self, test_batch, test_index):

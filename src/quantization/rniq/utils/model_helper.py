@@ -24,6 +24,7 @@ class ModelHelper:
                     log_wght_s.append(module.log_wght_s)
                     min = module.weight.amin()
                     max = module.weight.amax()
+
                 # add 1 lsb gap to prevent overflow
                 log_w_n_b.append(torch.log2(max - min + torch.exp2(module.log_wght_s.ravel())))
                     
