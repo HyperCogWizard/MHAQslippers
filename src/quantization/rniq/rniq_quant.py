@@ -76,8 +76,8 @@ class RNIQQuant(BaseQuant):
             qmodel.tmodel = tmodel.requires_grad_(False)
             
             # chosen layer to propagate back from
-            # chosen_module = tmodel.model.features.stage3.unit3.body.conv2.conv
-            chosen_module = tmodel.model.features.stage2.unit3.body.conv2.conv
+            chosen_module = tmodel.model.features.stage3.unit3.body.conv2.conv
+            # chosen_module = tmodel.model.features.stage2.unit3.body.conv2.conv
             ###
             qmodel.tmodel.hook = hooks.ActivationHook(chosen_module)
 
@@ -314,18 +314,18 @@ class RNIQQuant(BaseQuant):
         if is_biased(module):
             qmodule.bias = module.bias
 
-        qmodule = self._get_quantization_sequence(qmodule, signed_Activations)
+        qmodule = self._get_quantization_sequence(qmodule, signed_Activations, channels=qmodule.in_channels)
 
         return qmodule
 
-    def _get_quantization_sequence(self, qmodule, signed_activations):
+    def _get_quantization_sequence(self, qmodule, signed_activations, channels=1):
         disabled = False
         if self.config.quantization.act_bit == -1 or self.config.quantization.act_bit > 20:
             disabled = True
         sequence = nn.Sequential(
             OrderedDict(
                 [
-                    ("activations_quantizer", NoisyAct(signed=signed_activations, disable=disabled)),
+                    ("activations_quantizer", NoisyAct(signed=signed_activations, disable=disabled, channels=channels)),
                     ("0", qmodule),
                 ]
             )
