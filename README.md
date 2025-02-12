@@ -98,11 +98,13 @@ Please refer to [CONTRIBUTING.md](CONTRIBUTING.md)
 ### CIFAR-10
 | Model     | Dataset  | Method | QW | QA | Best Top-1 |
 |-----------|----------|--------|----|----|------------|
-| Resnet-20 | CIFAR-10 | FP     | -  | -  | 91.7%      |
-| Resnet-20 | CIFAR-10 | RNIQ   | 2  | -  | 91.85%      |
-| Resnet-20 | CIFAR-10 | [link](https://github.com/linkinpark213/quantization-networks-cifar10/tree/master)   | 2  | -  | 91.1%      |
+| Resnet-20 | CIFAR-10 | FP (finetuned)     | -  | -  | 92.82%      |
+| Resnet-20 | CIFAR-10 | RNIQ   | 1  | 1  | 85.78%      |
+| Resnet-20 | CIFAR-10 | RNIQ   | 1  | 32 | 92.14%      |   
+| Resnet-20 | CIFAR-10 | RNIQ   | 2  | 2  | 91.4%      |
+| Resnet-20 | CIFAR-10 | RNIQ   | 3  | 3  | 92.5%      |
+| Resnet-20 | CIFAR-10 | RNIQ   | 4  | 4  | 92.78%      |
 |           |          |        |    |    |             |
-| Resnet-20 | CIFAR-10 | FP     | -  | -  | 93.89%      |
 | Resnet-20 | CIFAR-10 | [APoT](https://arxiv.org/abs/1909.13144)   | 2  | 2  | 91.0%      |
 | Resnet-20 | CIFAR-10 | RNIQ   | 2  | 2  | 90.88%      |
 
@@ -110,15 +112,14 @@ Please refer to [CONTRIBUTING.md](CONTRIBUTING.md)
 | Model     | Dataset   | Method | QW | QA | Best Top-1  |
 |-----------|-----------|--------|----|----|-------------|
 | Resnet-20 | CIFAR-100 | FP     | -  | -  | 70.26%      |
-| Resnet-20 | CIFAR-100 | RNIQ   | 2  | -  | 67.31%      |
+| Resnet-20 | CIFAR-100 | FP     | 1  | 1  | 56.94%      |
+| Resnet-20 | CIFAR-100 | RNIQ   | 2  | 2  | 66.41%      |
+| Resnet-20 | CIFAR-100 | RNIQ   | 3  | 3  | 69.36%      |
+| Resnet-20 | CIFAR-100 | RNIQ   | 4  | 4  | 70.24%      |
 |           |           |        |    |    |             |
-| Resnet-20 | CIFAR-100 | [APoT](https://arxiv.org/abs/1909.13144)   | 2  | 2  | 66.42%      |
-| Resnet-20 | CIFAR-100 | RNIQ   | 2  | 2  | 60.09%      |
-|           |           |        |    |    |             |
-| Resnet-20 | CIFAR-100 | [Qimera](https://arxiv.org/abs/2111.02625v1)   | 4  | 4  | 65.10%      |
 
 ### IMAGENET-1K
 | Model     | Dataset     | Method | QW | QA | Best Top-1  |
 |-----------|-------------|--------|----|----|-------------|
-| Resnet-18 | IMAGENET-1k | FP     | -  | -  | 69.75%      |
-| Resnet-18 | IMAGENET-1k | [APoT](https://arxiv.org/abs/1909.13144)    | 2  | 2  | 66.46%      |
+| Resnet-18 | IMAGENET-1k | FP(finetuned)     | -  | -  | 71.91%      |
+| Resnet-18 | IMAGENET-1k | FP(finetuned)     | 1  | 32  | 66.14%      |
