@@ -81,6 +81,7 @@ class RNIQQuant(BaseQuant):
             
             # chosen layer to propagate back from
             chosen_module = tmodel.model.features.stage3.unit3.body.conv2.conv
+            # chosen_module = tmodel.model.layer3[2].conv2
             # chosen_module = tmodel.model.features.stage2.unit3.body.conv2.conv
             ###
             qmodel.tmodel.hook = hooks.ActivationHook(chosen_module)
@@ -340,7 +341,8 @@ class RNIQQuant(BaseQuant):
         if is_biased(module):
             qmodule.bias = module.bias
 
-        qmodule = self._get_quantization_sequence(qmodule, signed_Activations, channels=qmodule.in_channels)
+        # qmodule = self._get_quantization_sequence(qmodule, signed_Activations, channels=qmodule.in_channels)
+        qmodule = self._get_quantization_sequence(qmodule, signed_Activations)
 
         return qmodule
 
