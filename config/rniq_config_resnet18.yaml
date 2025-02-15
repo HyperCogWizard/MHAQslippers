@@ -1,6 +1,6 @@
 model:
   type: VISION_CLS
-  name: resnet18
+  name: biresnet18
   cpt_url: "file://data/models/ilsvrc2012-resnet18_from_resnet34.pt"
   params:
     pretrained: False
