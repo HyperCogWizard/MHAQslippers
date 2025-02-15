@@ -1,5 +1,6 @@
 import os
 from typing import Optional
+import torch
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 from lightning import pytorch as pl
@@ -37,6 +38,7 @@ class ImageNetDataModule(pl.LightningDataModule):
                 transforms.RandomResizedCrop(224),
                 transforms.RandomHorizontalFlip(),
                 transforms.ToTensor(),
+                transforms.ConvertImageDtype(torch.bfloat16),
                 transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
             ]
         )
@@ -47,6 +49,7 @@ class ImageNetDataModule(pl.LightningDataModule):
                 transforms.Resize(256),
                 transforms.CenterCrop(224),
                 transforms.ToTensor(),
+                transforms.ConvertImageDtype(torch.bfloat16),
                 transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
             ]
         )
@@ -82,12 +85,13 @@ class ImageNetDataModule(pl.LightningDataModule):
             shuffle=True,
             num_workers=self.num_workers,
             pin_memory=self.pin_memory,
+            drop_last=True
         )
 
     def val_dataloader(self):
         return DataLoader(
             self.val_dataset,
-            batch_size=self.batch_size,
+            batch_size=self.batch_size * 4,
             shuffle=False,
             num_workers=self.num_workers,
             pin_memory=self.pin_memory,
@@ -96,7 +100,7 @@ class ImageNetDataModule(pl.LightningDataModule):
     def test_dataloader(self):
         return DataLoader(
             self.test_dataset,
-            batch_size=self.batch_size,
+            batch_size=self.batch_size * 4,
             shuffle=False,
             num_workers=self.num_workers,
             pin_memory=self.pin_memory,

@@ -25,12 +25,15 @@ class CIFAR10DataModule(pl.LightningDataModule):
                 transforms.RandomHorizontalFlip(),
                 transforms.RandomCrop(32, padding=4, padding_mode="reflect"),
                 transforms.ToTensor(),
+                transforms.ConvertImageDtype(torch.bfloat16),
                 self._normalize(),
             ]
         )
 
         self.transform_test = transforms.Compose(
-            [transforms.ToTensor(), self._normalize()]
+            [transforms.ToTensor(), 
+             transforms.ConvertImageDtype(torch.bfloat16), 
+             self._normalize()]
         )
 
     def prepare_data(self):

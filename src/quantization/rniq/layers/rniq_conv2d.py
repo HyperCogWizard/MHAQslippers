@@ -67,7 +67,8 @@ class NoisyConv2d(nn.Conv2d):
 
         weight = self.Q.dequantize(self.Q.quantize(self.weight))
 
-        return self._conv_forward(input, weight, self.bias)
+        with torch.autocast('cuda', dtype=torch.bfloat16):
+            return self._conv_forward(input, weight, self.bias).float()
 
     def extra_repr(self) -> str:
         bias = is_biased(self)

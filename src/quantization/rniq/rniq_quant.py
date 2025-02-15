@@ -58,15 +58,13 @@ class RNIQQuant(BaseQuant):
             return qmodel.criterion
 
     def quantize(self, lmodel: pl.LightningModule, in_place=False):
-        if self.config.quantization.distillation:
-            if not self.config.quantization.distillation_teacher:
-                tmodel = deepcopy(lmodel).eval()
-            else: #XXX fix me
-                tmodel = resnet20_cifar10_new(pretrained=True)
         if in_place:
             qmodel = lmodel
         else:
             qmodel = deepcopy(lmodel)
+
+        if self.config.quantization.distillation:
+            qmodel.tmodel = deepcopy(lmodel).eval().requires_grad_(False)
 
         layer_names, layer_types = zip(
             *[(n, type(m)) for n, m in qmodel.model.named_modules()]
@@ -75,10 +73,7 @@ class RNIQQuant(BaseQuant):
         # The part where original LModule structure gets changed
         qmodel._noise_ratio = torch.tensor(1.0)
         qmodel.qscheme = self.qscheme
-
-        if self.config.quantization.distillation:
-            qmodel.tmodel = tmodel.requires_grad_(False)
-
+            
         qmodel.wrapped_criterion = PotentialLoss(
             criterion=self.get_distill_loss(qmodel=qmodel),
             p=1,
@@ -152,7 +147,7 @@ class RNIQQuant(BaseQuant):
     @staticmethod  # yes, it's a static method with self argument
     def noisy_step(self, x):
         # now that we set qmodule.qscheme, we can address it in replaced step
-        return (self.model(x), *ModelHelper.get_model_values(self.model, self.qscheme))
+        return (self.forward(x), *ModelHelper.get_model_values(self.model, self.qscheme))
 
     @staticmethod
     def distillation_noisy_training_step(self, batch, batch_idx):
@@ -163,19 +158,21 @@ class RNIQQuant(BaseQuant):
         fp_outputs = self.tmodel(inputs)
         loss = self.wrapped_criterion(outputs, fp_outputs)
 
-        self.log("Loss/FP loss", F.cross_entropy(fp_outputs, targets))
-        self.log("Loss/Train loss", loss, prog_bar=True)
+        self.log("Loss/FP loss", F.cross_entropy(fp_outputs, targets), sync_dist=True)
+        self.log("Loss/Train loss", loss, prog_bar=True, sync_dist=True)
         self.log(
-            "Loss/Base train loss", self.wrapped_criterion.base_loss, prog_bar=True
-        )
-        self.log("Loss/Wloss", self.wrapped_criterion.wloss, prog_bar=False)
-        self.log("Loss/Aloss", self.wrapped_criterion.aloss, prog_bar=False)
+            "Loss/Base train loss", self.wrapped_criterion.base_loss, prog_bar=True,
+            sync_dist=True
+            )
+        self.log("Loss/Wloss", self.wrapped_criterion.wloss, prog_bar=False, sync_dist=True)
+        self.log("Loss/Aloss", self.wrapped_criterion.aloss, prog_bar=False, sync_dist=True)
         self.log(
             "Loss/Weight reg loss",
             self.wrapped_criterion.weight_reg_loss,
             prog_bar=False,
+            sync_dist=True
         )
-        self.log("LR", self.lr, prog_bar=True)
+        self.log("LR", self.lr, prog_bar=True, sync_dist=True)
 
         return loss
 
@@ -185,18 +182,20 @@ class RNIQQuant(BaseQuant):
         outputs = RNIQQuant.noisy_step(self, inputs)
         loss = self.wrapped_criterion(outputs, targets)
 
-        self.log("Loss/Train loss", loss, prog_bar=True)
+        self.log("Loss/Train loss", loss, prog_bar=True, sync_dist=True)
         self.log(
-            "Loss/Base train loss", self.wrapped_criterion.base_loss, prog_bar=True
+            "Loss/Base train loss", self.wrapped_criterion.base_loss, prog_bar=True,
+            sync_dist=True
         )
-        self.log("Loss/Wloss", self.wrapped_criterion.wloss, prog_bar=False)
-        self.log("Loss/Aloss", self.wrapped_criterion.aloss, prog_bar=False)
+        self.log("Loss/Wloss", self.wrapped_criterion.wloss, prog_bar=False, sync_dist=True)
+        self.log("Loss/Aloss", self.wrapped_criterion.aloss, prog_bar=False, sync_dist=True)
         self.log(
             "Loss/Weight reg loss",
             self.wrapped_criterion.weight_reg_loss,
             prog_bar=False,
+            sync_dist=True
         )
-        self.log("LR", self.lr, prog_bar=True)
+        self.log("LR", self.lr, prog_bar=True, sync_dist=True)
 
         return loss
 
@@ -212,42 +211,48 @@ class RNIQQuant(BaseQuant):
         for name, metric in self.metrics:
             metric_value = metric(outputs[0], targets)
             # metric_value = metric(outputs, targets)
-            self.log(f"Metric/{name}", metric_value, prog_bar=False)
-            self.log(f"Metric/ns_{name}", metric_value * model_stats.is_converged(self), prog_bar=False) 
+            self.log(f"Metric/{name}", metric_value, prog_bar=False, sync_dist=True)
+            self.log(f"Metric/ns_{name}", metric_value * model_stats.is_converged(self), prog_bar=False, sync_dist=True) 
 
         # Not very optimal approach. Cycling through model two times..
         self.log(
             "Mean weights bit width",
             model_stats.get_weights_bit_width_mean(self.model),
             prog_bar=False,
+            sync_dist=True
         )
         self.log(
             "Actual weights bit width",
             model_stats.get_true_weights_width(self.model, max=False),
-            prog_bar=False
+            prog_bar=False,
+            sync_dist=True
         )
         self.log(
             "Actual weights max bit width",
             model_stats.get_true_weights_width(self.model),
-            prog_bar=False
+            prog_bar=False,
+            sync_dist=True
         )
         self.log(
             "Mean activations bit width",
             model_stats.get_activations_bit_width_mean(self.model),
             prog_bar=False,
+            sync_dist=True
         )
         self.log(
             "Actual activations bit widths",
             model_stats.get_true_activations_width(self.model, max=False),
-            prog_bar=False
+            prog_bar=False,
+            sync_dist=True
         )
         self.log(
             "Actual activations max bit widths",
             model_stats.get_true_activations_width(self.model),
-            prog_bar=False
+            prog_bar=False,
+            sync_dist=True
         )
 
-        self.log("Loss/Validation loss", val_loss, prog_bar=False)
+        self.log("Loss/Validation loss", val_loss, prog_bar=False, sync_dist=True)
 
 
     @staticmethod
@@ -259,9 +264,9 @@ class RNIQQuant(BaseQuant):
         test_loss = self.criterion(outputs[0], targets)
         for name, metric in self.metrics:
             metric_value = metric(outputs[0], targets)
-            self.log(f"{name}", metric_value, prog_bar=False)
+            self.log(f"{name}", metric_value, prog_bar=False, sync_dist=True)
 
-        self.log("test_loss", test_loss, prog_bar=True)
+        self.log("test_loss", test_loss, prog_bar=True, sync_dist=True)
 
     def _init_config(self):
         if self.config:

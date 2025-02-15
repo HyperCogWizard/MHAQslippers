@@ -58,7 +58,8 @@ class NoisyLinear(nn.Linear):
 
         weight = self.Q.dequantize(self.Q.quantize(self.weight))
 
-        return F.linear(input, weight, self.bias)
+        with torch.autocast('cuda', dtype=torch.bfloat16):
+            return F.linear(input, weight, self.bias).float()
     
     def extra_repr(self) -> str:
         bias = is_biased(self)
