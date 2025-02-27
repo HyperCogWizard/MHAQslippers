@@ -61,8 +61,7 @@ class CIFAR10NOISEDataModule(pl.LightningDataModule):
             cifar_data, [45000, 5000], generator=torch.Generator().manual_seed(42)
         )
 
-        if stage == "test":
-            self.cifar_test = CIFAR10(
+        self.cifar_test = CIFAR10(
                 self.data_dir, train=False, transform=self.transform_test
             )
 
@@ -84,7 +83,7 @@ class CIFAR10NOISEDataModule(pl.LightningDataModule):
 
     def val_dataloader(self):
         return DataLoader(
-            self.cifar_val,
+            self.cifar_test,
             batch_size=self.batch_size,
             num_workers=self.num_workers,
             persistent_workers=True

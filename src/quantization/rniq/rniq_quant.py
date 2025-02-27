@@ -2,7 +2,7 @@ import lightning.pytorch as pl
 import torch.nn.functional as F
 import torch
 
-from src.models.resnet.resnet_cifar import resnet20_cifar10_new
+from src.models.resnet.resnet_cifar import resnet20_cifar10_new, resnet20_cifar10
 from src.quantization.abc.abc_quant import BaseQuant
 from src.quantization.rniq.layers.rniq_conv2d import NoisyConv2d
 from src.quantization.rniq.layers.rniq_linear import NoisyLinear
@@ -68,6 +68,8 @@ class RNIQQuant(BaseQuant):
         else:
             qmodel = deepcopy(lmodel)
 
+        # qmodel.model = resnet20_cifar10(pretrained=False)
+
         layer_names, layer_types = zip(
             *[(n, type(m)) for n, m in qmodel.model.named_modules()]
         )
@@ -80,8 +82,8 @@ class RNIQQuant(BaseQuant):
             qmodel.tmodel = tmodel.requires_grad_(False)
             
             # chosen layer to propagate back from
-            chosen_module = tmodel.model.features.stage3.unit3.body.conv2.conv
-            # chosen_module = tmodel.model.layer3[2].conv2
+            # chosen_module = tmodel.model.features.stage3.unit3.body.conv2.conv
+            chosen_module = tmodel.model.layer3[2].conv2
             # chosen_module = tmodel.model.features.stage2.unit3.body.conv2.conv
             ###
             qmodel.tmodel.hook = hooks.ActivationHook(chosen_module)

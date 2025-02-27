@@ -9,8 +9,8 @@ model:
 training:
   criterion: CrossEntropyLoss
   optimizer: RAdam
-  learning_rate: 0.002
-  max_epochs: 1000
+  learning_rate: 0.0005
+  max_epochs: 1500
   val_every_n_epochs: 2
   log_every_n_steps: 10
   loggers:
@@ -21,21 +21,21 @@ training:
   callbacks:
     LayersWidthVis:
       params: {}
-    NoiseEarlyStopping:
-      params:
-        monitor: Metric/ns_Accuracy_top1
-        mode: max
-        patience: 50
-        min_delta: 0.0001
+    # NoiseEarlyStopping:
+    #   params:
+    #     monitor: Metric/ns_Accuracy_top1
+    #     mode: max
+    #     patience: 50
+    #     min_delta: 0.0001
     ModelCheckpoint:
       params:
         monitor: Metric/ns_Accuracy_top1
         mode: max
         filename: rniq_checkpoint-{epoch:02d}-"{Metric/ns_Accuracy_top1:.2f}"
-    TemperatureScale:
-      params:
-        scale_lr: 1
-        warmup: 1000
+    # TemperatureScale:
+    #   params:
+    #     scale_lr: 1
+    #     warmup: 1000
 data:
   dataset_name: CIFAR10_NOISE
   batch_size: 1000
@@ -45,8 +45,8 @@ data:
 quantization:
   name: RNIQQuant
   qscheme: 1 # 0 for per-tensor, 1 for per-channel
-  weight_bit: 2
-  act_bit: 2
+  weight_bit: 32
+  act_bit: 32
   distillation: True
   distillation_loss: Symmetrical KL
   #distillation_teacher: resnet20_cifar10_new
