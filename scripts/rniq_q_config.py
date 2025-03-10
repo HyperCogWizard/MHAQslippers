@@ -20,7 +20,7 @@ def parse_args():
         type=str, 
         required=False, 
         help="Path to the configuration file (YAML).",
-        default="config/rniq_config_resnet20_new.yaml"
+        default="config/rniq_config_resnet20_old.yaml"
         # default="config/rniq_config_resnet20_new_4bit.yaml"
     )
     return parser.parse_args()
@@ -33,7 +33,7 @@ def main():
     dataset_composer = DatasetComposer(config=config)
     model_composer = ModelComposer(config=config)
     quantizer = Quantizer(config=config)()
-    trainer = Trainer(config=config)
+    trainer = Trainer(config=config, devices=[0])
 
     data = dataset_composer.compose()
     model = model_composer.compose()

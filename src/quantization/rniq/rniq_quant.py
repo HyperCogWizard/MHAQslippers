@@ -23,6 +23,17 @@ from copy import deepcopy
 from operator import attrgetter
 from collections import OrderedDict
 
+from torchvision import transforms
+
+def deprocess_image(image_tensor):
+    """Convert a tensor back to a displayable image."""
+    image_tensor = image_tensor.squeeze(0).detach().cpu()
+    mean = torch.tensor([0.4914, 0.4822, 0.4465]).view(3, 1, 1)
+    std = torch.tensor([0.247, 0.243, 0.261]).view(3, 1, 1)
+    image_tensor = image_tensor * std + mean
+    image_tensor = torch.clamp(image_tensor, 0, 1)
+    return transforms.ToPILImage()(image_tensor)
+
 
 class RNIQQuant(BaseQuant):
     def module_mappings(self):
@@ -83,10 +94,14 @@ class RNIQQuant(BaseQuant):
             
             # chosen layer to propagate back from
             # chosen_module = tmodel.model.features.stage3.unit3.body.conv2.conv
-            chosen_module = tmodel.model.layer3[2].conv2
+            # chosen_module = tmodel.model.layer3[2].conv2
             # chosen_module = tmodel.model.features.stage2.unit3.body.conv2.conv
             ###
-            qmodel.tmodel.hook = hooks.ActivationHook(chosen_module)
+            # qmodel.tmodel.hook = hooks.ActivationHook(chosen_module)
+
+            for module in tmodel.model.modules():
+                if isinstance(module, nn.Conv2d):
+                    module.hook = hooks.ActivationHook(module)
 
 
         qmodel.wrapped_criterion = PotentialLoss(
@@ -221,22 +236,31 @@ class RNIQQuant(BaseQuant):
 
         # Kinda deepdream of some sort
         ##############################
-        inputs.requires_grad_(True)
-        fp_outputs = self.tmodel(inputs)
-        
-        loss_ = self.tmodel.hook.feature_map.norm()
-        loss_.backward(retain_graph=True)
-        
-        step_size = 0.2
-        with torch.no_grad():
-            inputs_ = inputs.detach() + step_size * inputs.grad / (inputs.grad.std() + 1e-8)
-            inputs.grad.zero_()
+
+        loss_ = torch.zeros((1), device=inputs.device)
+        for i in range(10):
+            inputs.requires_grad_(True)
+            fp_outputs = self.tmodel(inputs)
+
+            for module in self.tmodel.model.modules():
+                if isinstance(module, nn.Conv2d):
+                    loss_ += module.hook.feature_map.norm()
+                    
+            
+            # loss_ = self.tmodel.hook.feature_map.norm()
+            loss_.backward(retain_graph=True)
+            
+            step_size = 0.2
+            with torch.no_grad():
+                # inputs = inputs.detach() + step_size * inputs.grad / (inputs.grad.std() + 1e-8)
+                inputs.data = inputs.data + step_size * inputs.grad.data / (inputs.grad.std() + 1e-8)
+                inputs.grad.data.zero_()
             
         ##############################
             
         inputs.requires_grad_(False)
-        fp_outputs_ = self.tmodel(inputs_)
-        outputs = RNIQQuant.noisy_step(self, inputs_)
+        fp_outputs_ = self.tmodel(inputs)
+        outputs = RNIQQuant.noisy_step(self, inputs)
         # outputs = RNIQQuant.noisy_step(self, inputs)
         
         loss = self.wrapped_criterion(outputs, fp_outputs_)

@@ -7,6 +7,7 @@ from torchvision.transforms import AutoAugmentPolicy
 
 from torch.utils.data import random_split, DataLoader, Dataset
 
+
 class UniformNoiseDataset(Dataset):
     def __init__(self, size, num_classes=10):
         self.size = size
@@ -21,11 +22,11 @@ class UniformNoiseDataset(Dataset):
         label = torch.randint(0, self.num_classes, (1,)).item()
         return noise, label
 
+
 class CIFAR10NOISEDataModule(pl.LightningDataModule):
-    def __init__(self,
-                 data_dir: str = "./data",
-                 batch_size=1000,
-                 num_workers=5) -> None:
+    def __init__(
+        self, data_dir: str = "./data", batch_size=1000, num_workers=5
+    ) -> None:
 
         super().__init__()
         self.data_dir = data_dir
@@ -38,12 +39,14 @@ class CIFAR10NOISEDataModule(pl.LightningDataModule):
                 # transforms.RandomHorizontalFlip(),
                 # transforms.RandomCrop(32, padding=4),
                 transforms.ToTensor(),
-                self._normalize(),
+                # self._normalize(),
             ]
         )
 
         self.transform_test = transforms.Compose(
-            [transforms.ToTensor(), self._normalize()]
+            [transforms.ToTensor(), 
+            #  self._normalize()
+             ]
         )
 
     def prepare_data(self):
@@ -51,19 +54,17 @@ class CIFAR10NOISEDataModule(pl.LightningDataModule):
         CIFAR10(self.data_dir, train=False, download=True)
 
     def setup(self, stage: str):
-        cifar_data = CIFAR10(
-            self.data_dir, train=True, transform=self.transform_train
-        )
+        cifar_data = CIFAR10(self.data_dir, train=True, transform=self.transform_train)
 
         self.cifar_train = UniformNoiseDataset(size=45000)
-        
+
         _, self.cifar_val = random_split(
             cifar_data, [45000, 5000], generator=torch.Generator().manual_seed(42)
         )
 
         self.cifar_test = CIFAR10(
-                self.data_dir, train=False, transform=self.transform_test
-            )
+            self.data_dir, train=False, transform=self.transform_test
+        )
 
         if stage == "predict":
             self.cifar_test = CIFAR10(
@@ -78,7 +79,7 @@ class CIFAR10NOISEDataModule(pl.LightningDataModule):
             persistent_workers=True,
             pin_memory=True,
             prefetch_factor=5,
-            shuffle=False
+            shuffle=False,
         )
 
     def val_dataloader(self):
@@ -86,7 +87,7 @@ class CIFAR10NOISEDataModule(pl.LightningDataModule):
             self.cifar_test,
             batch_size=self.batch_size,
             num_workers=self.num_workers,
-            persistent_workers=True
+            persistent_workers=True,
         )
 
     def test_dataloader(self):
@@ -95,7 +96,7 @@ class CIFAR10NOISEDataModule(pl.LightningDataModule):
             batch_size=self.batch_size,
             num_workers=self.num_workers,
             persistent_workers=True,
-            pin_memory=True
+            pin_memory=True,
         )
 
     def predict_dataloader(self):
