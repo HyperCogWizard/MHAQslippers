@@ -6,6 +6,7 @@ import numpy as np
 import os, sys
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 from src.models.resnet.resnet_cifar import resnet20_cifar10
 
@@ -36,6 +37,7 @@ class DeepDream:
             transforms.Normalize(mean=self.mean, std=self.std)
         ])
         tensor = transform(image).unsqueeze(0).requires_grad_(True)
+        tensor = transform(image).unsqueeze(0).to(device)
         return tensor
 
     def deprocess(self, tensor):
@@ -90,28 +92,31 @@ class DeepDream:
 
 if __name__ == "__main__":
     import torch
-    # from torchvision.models import resnet18  # Replace with your CIFAR-trained model if available
+    from torchvision.models import resnet18  # Replace with your CIFAR-trained model if available
 
-    # model = resnet18(pretrained=True).eval()
-    model = resnet20_cifar10(pretrained=True).eval()
+    # model = resnet18(pretrained=True).eval().to(device)
+    model = resnet20_cifar10(pretrained=True).eval().to(device)
 
     target_layer = 'layer3.2.conv2'
+    # target_layer = 'layer4.1.conv2'
+    # target_layer = 'layer3.1.conv2'
     dreamer = DeepDream(model, target_layer)
 
     # image_path = "your_image.jpg"
     # original_image = Image.open(image_path).convert('RGB')
-    original_image = (np.random.rand(32, 32, 3)*255).round().astype(np.uint8)
+    original_image = (np.random.rand(1024, 1024, 3)*255).round().astype(np.uint8)
+    # original_image = (np.random.rand(32, 32, 3)*255).round().astype(np.uint8)
 
     dreamed_image = dreamer.dream_octaves(
         image=original_image,
-        iterations=10,
-        octaves=3,
+        iterations=400,
+        octaves=5,
         octave_scale=1.4,
         step_size=0.02
     )
 
     # dreamed_img = dreamer.deprocess(dreamed_image)
-    dreamed_image.save("deepdream_result.jpg")
+    dreamed_image.save("deepdream_result_resnet20_400_5oct_1024_layer3.jpg")
     dreamed_image.show()
 
     dreamer.remove_hook()
