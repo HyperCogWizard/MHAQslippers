@@ -94,14 +94,14 @@ class RNIQQuant(BaseQuant):
             
             # chosen layer to propagate back from
             # chosen_module = tmodel.model.features.stage3.unit3.body.conv2.conv
-            # chosen_module = tmodel.model.layer3[2].conv2
+            chosen_module = tmodel.model.layer3[2].conv2
             # chosen_module = tmodel.model.features.stage2.unit3.body.conv2.conv
             ###
-            # qmodel.tmodel.hook = hooks.ActivationHook(chosen_module)
+            qmodel.tmodel.hook = hooks.ActivationHook(chosen_module)
 
-            for module in tmodel.model.modules():
-                if isinstance(module, nn.Conv2d):
-                    module.hook = hooks.ActivationHook(module)
+            # for module in tmodel.model.modules():
+            #     if isinstance(module, nn.Conv2d):
+            #         module.hook = hooks.ActivationHook(module)
 
 
         qmodel.wrapped_criterion = PotentialLoss(
@@ -232,35 +232,61 @@ class RNIQQuant(BaseQuant):
     @staticmethod
     def distillation_deepdream_noisy_training_step(self, batch, batch_idx):
         inputs, targets = batch
+        # mean = torch.Tensor([0.4914, 0.4822, 0.4465]).to(inputs.device)
+        # std = torch.Tensor([0.247, 0.243, 0.261]).to(inputs.device)
+
+        # noise = torch.randn_like(inputs) * std[None, :, None, None] + mean[None, :, None, None]
+        noise = torch.randn_like(inputs)
+
         # fp_outputs = self.tmodel(inputs)
 
         # Kinda deepdream of some sort
         ##############################
+        self.tmodel.eval()
 
         loss_ = torch.zeros((1), device=inputs.device)
-        for i in range(10):
-            inputs.requires_grad_(True)
-            fp_outputs = self.tmodel(inputs)
 
-            for module in self.tmodel.model.modules():
-                if isinstance(module, nn.Conv2d):
-                    loss_ += module.hook.feature_map.norm()
-                    
+        inputs.requires_grad_(True)
+        fp_outputs = self.tmodel(inputs)
+
+
+        loss_ = self.tmodel.hook.feature_map.norm()
+        loss_.backward(retain_graph=True)
+
+        step_size = 0.3
+        with torch.no_grad():
+            # inputs = inputs.detach() + step_size * inputs.grad / (inputs.grad.std() + 1e-8)
+            noise += step_size * inputs.grad.data / (inputs.grad.std() + 1e-8)
+            # inputs.data = inputs.data + step_size * inputs.grad.data / (inputs.grad.std() + 1e-8)
+            inputs.grad.data.zero_()
+
+        for i in range(50):
+            print((self.tmodel(inputs).argmax(axis=1) == self.tmodel(noise).argmax(axis=1)).sum() / noise.shape[0])
+
+            # for module in self.tmodel.model.modules():
+                # if isinstance(module, nn.Conv2d):
+                    # loss_ += module.hook.feature_map.norm()
             
-            # loss_ = self.tmodel.hook.feature_map.norm()
+            noise.requires_grad_(True)
+            fp_outputs = self.tmodel(noise)
+
+            loss_ = self.tmodel.hook.feature_map.norm()
             loss_.backward(retain_graph=True)
-            
-            step_size = 0.2
+
+            step_size = 0.02
             with torch.no_grad():
                 # inputs = inputs.detach() + step_size * inputs.grad / (inputs.grad.std() + 1e-8)
-                inputs.data = inputs.data + step_size * inputs.grad.data / (inputs.grad.std() + 1e-8)
-                inputs.grad.data.zero_()
+                noise += step_size * noise.grad.data / (noise.grad.std() + 1e-8)
+                # inputs.data = inputs.data + step_size * inputs.grad.data / (inputs.grad.std() + 1e-8)
+                noise.grad.data.zero_()
             
         ##############################
             
+        exit(0)
         inputs.requires_grad_(False)
         fp_outputs_ = self.tmodel(inputs)
-        outputs = RNIQQuant.noisy_step(self, inputs)
+        # outputs = RNIQQuant.noisy_step(self, inputs)
+        outputs = RNIQQuant.noisy_step(self, noise)
         # outputs = RNIQQuant.noisy_step(self, inputs)
         
         loss = self.wrapped_criterion(outputs, fp_outputs_)
