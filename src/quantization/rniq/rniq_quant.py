@@ -259,16 +259,16 @@ class RNIQQuant(BaseQuant):
         # loss_ = self.tmodel.hook.feature_map.norm()
         init_loss.backward(retain_graph=True)
 
-        step_size = 0.3
+        step_size = 0.5
         with torch.no_grad():
             # inputs = inputs.detach() + step_size * inputs.grad / (inputs.grad.std() + 1e-8)
             # noise += step_size * inputs.grad.data / (inputs.grad.std() + 1e-8)
-            noise.data += step_size * noise.grad.data.detach() / (noise.grad.std() + 1e-8)
+            noise.data -= step_size * noise.grad.data.detach() / (noise.grad.std() + 1e-8)
             # inputs.data = inputs.data + step_size * inputs.grad.data / (inputs.grad.std() + 1e-8)
             noise.grad.data.zero_()
 
-        for i in range(50):
-            print("ACC = ", ((self.tmodel(inputs).argmax(axis=1) == self.tmodel(noise).argmax(axis=1)).sum() / noise.shape[0]).item())
+        for i in range(10):
+            # print(f"{i} ACC = {((self.tmodel(inputs).argmax(axis=1) == self.tmodel(noise).argmax(axis=1)).sum() / noise.shape[0]).item()}")
 
             # for module in self.tmodel.model.modules():
                 # if isinstance(module, nn.Conv2d):
@@ -280,23 +280,32 @@ class RNIQQuant(BaseQuant):
             noise_fmap = self.tmodel.hook.feature_map
 
             loss_ = F.mse_loss(noise_fmap, ref_fmap)
+            # loss_ = F.l1_loss(noise_fmap, ref_fmap)
             # loss_ = self.tmodel.hook.feature_map.norm()
             loss_.backward(retain_graph=True)
 
-            print(f"Loss = {loss_}")
+            self.log("Loss/Dream loss", loss_, prog_bar=True)
 
-            step_size = 0.2
+            # print(f"Loss = {loss_}")
+
+            step_size = 0.05
             with torch.no_grad():
                 # inputs = inputs.detach() + step_size * inputs.grad / (inputs.grad.std() + 1e-8)
                 noise.data = noise.data - step_size * noise.grad.data / (noise.grad.std() + 1e-8)
+                # noise.data = noise.data - step_size * noise.grad.data
                 # inputs.data = inputs.data + step_size * inputs.grad.data / (inputs.grad.std() + 1e-8)
+                # noise.data = noise.data.div(noise.std())
                 noise.grad.data.zero_()
             
         ##############################
-            
-        exit(0)
+
+        # noise.data = noise.data / noise.data.std()   
+
+        # print("ACC = ", ((self.tmodel(inputs).argmax(axis=1) == self.tmodel(noise).argmax(axis=1)).sum() / noise.shape[0]).item())
+        # exit(0)
         inputs.requires_grad_(False)
-        fp_outputs_ = self.tmodel(inputs)
+        # fp_outputs_ = self.tmodel(inputs)
+        fp_outputs_ = self.tmodel(noise)
         # outputs = RNIQQuant.noisy_step(self, inputs)
         outputs = RNIQQuant.noisy_step(self, noise)
         # outputs = RNIQQuant.noisy_step(self, inputs)
