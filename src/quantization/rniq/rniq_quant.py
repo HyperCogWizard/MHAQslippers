@@ -94,7 +94,8 @@ class RNIQQuant(BaseQuant):
             
             # chosen layer to propagate back from
             # chosen_module = tmodel.model.features.stage3.unit3.body.conv2.conv
-            chosen_module = tmodel.model.layer3[2].conv2
+            # chosen_module = tmodel.model.layer3[2].conv2 # for cifar10 old
+            chosen_module = tmodel.model.features.stage3.unit3.body.conv2.conv # for cifar100
             # chosen_module = tmodel.model.features.stage2.unit3.body.conv2.conv
             ###
             qmodel.tmodel.hook = hooks.ActivationHook(chosen_module)

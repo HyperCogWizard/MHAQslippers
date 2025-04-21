@@ -6,6 +6,7 @@ from .cifar10_dali import CIFAR10DALIDataModule as CIFAR10_DALI
 from .cifar10_noise import CIFAR10NOISEDataModule as CIFAR10_NOISE
 from .cifar100_dali import CIFAR10DALIDataModule as CIFAR100_DALI
 from .imagenet_dali import ImageNetDALIDataModule as IMAGENET_DALI
+from .cifar100_noise import CIFAR100NOISEDataModule as CIFAR100_NOISE
 
 __all__ = [
     "MNIST",
@@ -14,6 +15,7 @@ __all__ = [
     "CIFAR10_NOISE",
     "CIFAR100",
     "CIFAR100_DALI",
+    "CIFAR100_NOISE",
     "IMAGENET",
     "IMAGENET_DALI",
 ]
