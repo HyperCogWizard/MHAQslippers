@@ -173,6 +173,11 @@ data/*
 logs/*
 !data/.gitkeep
 wandb
+*.ckpt
+
+# Imgs
+*.png
+*jpg
 
 
 
