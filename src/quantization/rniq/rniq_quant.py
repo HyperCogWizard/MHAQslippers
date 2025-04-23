@@ -7,6 +7,7 @@ from src.quantization.abc.abc_quant import BaseQuant
 from src.quantization.rniq.layers.rniq_conv2d import NoisyConv2d
 from src.quantization.rniq.layers.rniq_linear import NoisyLinear
 from src.quantization.rniq.layers.rniq_act import NoisyAct
+from src.quantization.rniq.layers.rniq_maxpool2d import SoftPlusMaxPool2d
 from src.quantization.rniq.utils.model_helper import ModelHelper
 from src.quantization.rniq.rniq_loss import PotentialLoss
 from src.quantization.rniq.utils import model_stats, hooks
@@ -24,7 +25,7 @@ from operator import attrgetter
 from collections import OrderedDict
 
 from torchvision import transforms
- 
+
 def deprocess_image(image_tensor):
     """Convert a tensor back to a displayable image."""
     image_tensor = image_tensor.squeeze(0).detach().cpu()
@@ -40,6 +41,8 @@ class RNIQQuant(BaseQuant):
         return {
             nn.Conv2d: NoisyConv2d,
             nn.Linear: NoisyLinear,
+            nn.ReLU: nn.Softplus,
+            nn.MaxPool2d: SoftPlusMaxPool2d
         }
 
     def get_distill_loss(self, qmodel):
@@ -141,17 +144,19 @@ class RNIQQuant(BaseQuant):
             lmodel.model, exclude_layers=self.excluded_layers)
         for layer in qlayers.keys():
             module = attrgetter(layer)(lmodel.model)
-            if module.kernel_size != (1,1):
+            preceding_layer_type = layer_types[layer_names.index(layer) - 1]
+            if issubclass(preceding_layer_type, nn.ReLU): #XXX: hack shoul be changed through config
+                qmodule = self._quantize_module(
+                    module, signed_Activations=False)
+            elif hasattr(module, "kernel_size"):
+                if module.kernel_size == (1,1):
+                    continue
                 print(layer + " " + repr(module.kernel_size))
-                preceding_layer_type = layer_types[layer_names.index(layer) - 1]
-                if issubclass(preceding_layer_type, nn.ReLU): #XXX: hack shoul be changed through config
-                    qmodule = self._quantize_module(
-                        module, signed_Activations=False)
-                else:
-                    qmodule = self._quantize_module(
-                        module, signed_Activations=False)
+            else:
+                qmodule = self._quantize_module(
+                    module, signed_Activations=False)
 
-                attrsetter(layer)(qmodel.model, qmodule)
+            attrsetter(layer)(qmodel.model, qmodule)
 
         if self.config.quantization.freeze_batchnorm:
             RNIQQuant.freeze_all_batchnorm_layers(qmodel)                
@@ -407,6 +412,10 @@ class RNIQQuant(BaseQuant):
             qmodule = self._quantize_module_conv2d(module)
         elif isinstance(module, nn.Linear):
             qmodule = self._quantize_module_linear(module)
+        elif isinstance(module, nn.ReLU):
+            return self._quantize_relu(module)
+        elif isinstance(module, nn.MaxPool2d):
+            return self._quantize_maxpool2d(module)
         else:
             raise NotImplementedError(f"Module not supported {type(module)}")
 
@@ -458,3 +467,13 @@ class RNIQQuant(BaseQuant):
             qscheme=self.qscheme,
             log_s_init=-12,
         )
+    
+    def _quantize_relu(self, module: nn.ReLU):
+        return nn.Softplus(beta=1.0)
+    
+    def _quantize_maxpool2d(self, module: nn.MaxPool2d):
+        return SoftPlusMaxPool2d(module.kernel_size, 
+                                 module.stride, 
+                                 module.padding, 
+                                 beta=1.0)
+
