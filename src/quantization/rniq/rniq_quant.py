@@ -93,10 +93,9 @@ class RNIQQuant(BaseQuant):
             qmodel.tmodel = tmodel.requires_grad_(False)
             
             # chosen layer to propagate back from
-            # chosen_module = tmodel.model.features.stage3.unit3.body.conv2.conv
             # chosen_module = tmodel.model.layer3[2].conv2 # for cifar10 old
-            chosen_module = tmodel.model.features.stage3.unit3.body.conv2.conv # for cifar100
-            # chosen_module = tmodel.model.features.stage2.unit3.body.conv2.conv
+            # chosen_module = tmodel.model.features.stage3.unit3.body.conv2.conv # for cifar100
+            chosen_module = tmodel.get_submodule(self.config.dream.dream_layer)
             ###
             qmodel.tmodel.hook = hooks.ActivationHook(chosen_module)
 
@@ -118,13 +117,14 @@ class RNIQQuant(BaseQuant):
         # Important step. Replacing training and validation steps
         # with alternated ones.
         if self.config.quantization.distillation:
-            qmodel.training_step = RNIQQuant.distillation_deepdream_noisy_training_step.__get__(
-                qmodel, type(qmodel)
-            )
-
-            # qmodel.training_step = RNIQQuant.distillation_noisy_training_step.__get__(
-                # qmodel, type(qmodel)
-            # )
+            if self.config.dream.dream:
+                qmodel.training_step = RNIQQuant.distillation_deepdream_noisy_training_step.__get__(
+                    qmodel, type(qmodel)
+                )
+            else:
+                qmodel.training_step = RNIQQuant.distillation_noisy_training_step.__get__(
+                    qmodel, type(qmodel)
+                )
         else:
             qmodel.training_step = RNIQQuant.noisy_training_step.__get__(
                 qmodel, type(qmodel)
@@ -232,12 +232,10 @@ class RNIQQuant(BaseQuant):
     
     @staticmethod
     def distillation_deepdream_noisy_training_step(self, batch, batch_idx):
+        config = self.trainer.config
         inputs, targets = batch
-        # mean = torch.Tensor([0.4914, 0.4822, 0.4465]).to(inputs.device)
-        # std = torch.Tensor([0.247, 0.243, 0.261]).to(inputs.device)
 
-        # noise = torch.randn_like(inputs) * std[None, :, None, None] + mean[None, :, None, None]
-        noise = torch.randn_like(inputs)
+        noise = torch.randn_like(inputs) * config.dream.dream_noise_sigma
         noise.requires_grad_(True)
 
         # fp_outputs = self.tmodel(inputs)
@@ -268,7 +266,8 @@ class RNIQQuant(BaseQuant):
             # inputs.data = inputs.data + step_size * inputs.grad.data / (inputs.grad.std() + 1e-8)
             noise.grad.data.zero_()
 
-        for i in range(10):
+        # for i in range(15):
+        for i in range(config.dream.dream_iters):
             # print(f"{i} ACC = {((self.tmodel(inputs).argmax(axis=1) == self.tmodel(noise).argmax(axis=1)).sum() / noise.shape[0]).item()}")
 
             # for module in self.tmodel.model.modules():
@@ -312,6 +311,7 @@ class RNIQQuant(BaseQuant):
         # outputs = RNIQQuant.noisy_step(self, inputs)
         
         loss = self.wrapped_criterion(outputs, fp_outputs_)
+        # loss = F.cross_entropy(outputs[0], targets)
 
         self.log("Loss/FP loss", F.cross_entropy(fp_outputs_, targets))
         self.log("Loss/Train loss", loss, prog_bar=True)

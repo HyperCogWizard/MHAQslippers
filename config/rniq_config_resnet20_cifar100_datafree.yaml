@@ -16,7 +16,7 @@ training:
     WandbLogger:
       params:
         name: "resnet20-cifar100_rniq"
-        note: "Datafree, last conv, 13 iters, no quant"
+        note: "0.00001 sigma"
  
   callbacks:
     ModelCheckpoint:
@@ -40,6 +40,11 @@ data:
   batch_size: 1000
   num_workers: 10
 
+dream:
+  dream: True
+  dream_layer: "model.features.stage3.unit3.body.conv2.conv"
+  dream_iters: 15
+  dream_noise_sigme: 0.001
 
 quantization:
   name: RNIQQuant

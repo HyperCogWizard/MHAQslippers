@@ -52,6 +52,12 @@ class QuantizationConfig(BaseModel):
     calibration: Optional[CalibrationConfig] = None
     freeze_batchnorm: Optional[bool] = False
 
+class DreamConfig(BaseModel):
+    dream: bool = False
+    dream_layer: Optional[str] = None
+    dream_iters: Optional[int] = None
+    dream_noise_sigma: Optional[float] = 1.0
+
 
 class DataConfig(BaseModel):
     dataset_name: str
@@ -66,6 +72,7 @@ class ConfigSchema(BaseModel):
     data: DataConfig
     training: TrainingConfig
     quantization: QuantizationConfig
+    dream: Optional[DreamConfig]
 
     @field_validator("training")
     def validate_training(cls, v):
