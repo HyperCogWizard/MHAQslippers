@@ -151,6 +151,8 @@ class RNIQQuant(BaseQuant):
             elif hasattr(module, "kernel_size"):
                 if module.kernel_size == (1,1):
                     continue
+                qmodule = self._quantize_module(
+                    module, signed_Activations=False)
                 print(layer + " " + repr(module.kernel_size))
             else:
                 qmodule = self._quantize_module(
