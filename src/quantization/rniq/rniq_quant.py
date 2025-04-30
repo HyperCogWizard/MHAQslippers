@@ -158,6 +158,7 @@ class RNIQQuant(BaseQuant):
                 qmodule = self._quantize_module(
                     module, signed_Activations=False)
 
+            backward_hook = hooks.NoiseGradHook(qmodule)
             attrsetter(layer)(qmodel.model, qmodule)
 
         if self.config.quantization.freeze_batchnorm:
@@ -243,6 +244,8 @@ class RNIQQuant(BaseQuant):
         inputs, targets = batch
 
         noise = torch.randn_like(inputs) * config.dream.dream_noise_sigma
+        # noise = inputs
+        noise = torch.zeros_like(inputs)
         noise.requires_grad_(True)
 
         # fp_outputs = self.tmodel(inputs)
@@ -416,6 +419,7 @@ class RNIQQuant(BaseQuant):
             qmodule = self._quantize_module_linear(module)
         elif isinstance(module, nn.ReLU):
             return self._quantize_relu(module)
+            # return module
         elif isinstance(module, nn.MaxPool2d):
             return self._quantize_maxpool2d(module)
         else:
@@ -471,7 +475,7 @@ class RNIQQuant(BaseQuant):
         )
     
     def _quantize_relu(self, module: nn.ReLU):
-        return nn.Softplus(beta=1.0)
+        return nn.Softplus(beta=3.0)
     
     def _quantize_maxpool2d(self, module: nn.MaxPool2d):
         return SoftPlusMaxPool2d(module.kernel_size, 
